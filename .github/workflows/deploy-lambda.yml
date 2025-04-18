@@ -33,13 +33,13 @@ jobs:
 
       - name: Build shaded JAR
         run: mvn clean package
-
+        
       - name: Create Lambda ZIP
         run: |
           mkdir build
-          cp target/lambda-csv-processor-1.0-SNAPSHOT-shaded.jar build/
+          cp target/lambda-csv-processor-1.0-SNAPSHOT.jar build/
           cd build
-          zip csv-processor.zip lambda-csv-processor-1.0-SNAPSHOT-shaded.jar
+          zip csv-processor.zip lambda-csv-processor-1.0-SNAPSHOT.jar
 
       - name: Upload ZIP to S3
         uses: aws-actions/configure-aws-credentials@v3
