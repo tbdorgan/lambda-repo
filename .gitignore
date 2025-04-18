@@ -1,0 +1,25 @@
+# Ignore all files in .terraform directory
+.terraform/
+
+# Ignore AWS provider binaries and other files from Terraform or Lambda
+*.log
+*.tmp
+
+# Ignore IDE and editor files
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Ignore Java build files and directories
+*.class
+*.jar
+*.war
+target/
+
+# Ignore AWS Lambda packaged artifacts (if using Maven Shade)
+*.zip
+*.tar.gz
+
+# Ignore local environment settings
+.env
