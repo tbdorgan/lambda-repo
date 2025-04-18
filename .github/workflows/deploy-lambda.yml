@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      S3_BUCKET_NAME: your-lambda-s3-bucket-name
+      S3_BUCKET_NAME: my-lambda-deployments-bucket-123456
       S3_KEY: lambda/csv-processor.zip
 
     steps:
