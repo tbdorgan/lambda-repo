@@ -34,8 +34,9 @@ public class CsvFileHandlerLambda {
 
         public void handleRequest(S3Event event, Context context) { // Use S3Event here
 
-                context.getLogger().log("Processing CSV file:");
-
+                context.getLogger().log("Event :" + event.toString());
+                context.getLogger().log("PGet Key:" + event.getRecords().get(0).getS3().getObject().getKey());
+                context.getLogger().log("Bucket :" + event.getRecords().get(0).getS3().getBucket().getName());
                 // Environment variables injected by Terraform
                 String snsSecretName = System.getenv("SNS_SECRET_NAME"); // Secret in Secrets Manager (email address)
                 String snsTopicArn = System.getenv("SNS_TOPIC_ARN"); // SNS topic ARN
@@ -59,12 +60,14 @@ public class CsvFileHandlerLambda {
                         item.put("processedAt",
                                         AttributeValue.builder().s(String.valueOf(System.currentTimeMillis())).build());
 
+                        context.getLogger().log("Calling DynamoDB:");
                         dynamoClient.putItem(PutItemRequest.builder().tableName(dynamoTableName).item(item).build());
-
+                        context.getLogger().log("Publish to SNS:");
                         // Send SNS notification
                         snsClient.publish(PublishRequest.builder().topicArn(snsTopicArn)
                                         .message("CSV uploaded: s3://" + bucket + "/" + key).subject("CSV Upload")
                                         .build());
+                        context.getLogger().log("Sent to SNS:");
                 }
         }
 }
