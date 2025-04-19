@@ -35,8 +35,7 @@ public class CsvFileHandlerLambda {
         public void handleRequest(S3Event event, Context context) { // Use S3Event here
 
                 context.getLogger().log("Event :" + event.toString());
-                context.getLogger().log("PGet Key:" + event.getRecords().get(0).getS3().getObject().getKey());
-                context.getLogger().log("Bucket :" + event.getRecords().get(0).getS3().getBucket().getName());
+
                 // Environment variables injected by Terraform
                 String snsSecretName = System.getenv("SNS_SECRET_NAME"); // Secret in Secrets Manager (email address)
                 String snsTopicArn = System.getenv("SNS_TOPIC_ARN"); // SNS topic ARN
