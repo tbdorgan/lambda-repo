@@ -2,6 +2,8 @@ package com.example;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.events.S3Event;
+import com.amazonaws.services.s3.model.GetObjectRequest;
+import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.opencsv.CSVReader;
 import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
 import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueRequest;
@@ -36,73 +38,82 @@ public class CsvFileHandlerLambda {
                 this(SecretsManagerClient.create(), SnsClient.create(), DynamoDbClient.create());
         }
 
-        public void handleRequest(S3Event event, Context context) { // Use S3Event here
-                context.getLogger().log("Event :" + event.toString());
+        public void handleRequest(S3Event event, Context context) {
+                context.getLogger().log("Event: " + event.toString());
 
-                // Environment variables injected by Terraform
-                String snsSecretName = System.getenv("SNS_SECRET_NAME"); // Secret in Secrets Manager (email address)
-                String snsTopicArn = System.getenv("SNS_TOPIC_ARN"); // SNS topic ARN
-                String dynamoTableName = System.getenv("DDB_TABLE_NAME"); // DynamoDB table name
+                String snsSecretName = System.getenv("SNS_SECRET_NAME");
+                String snsTopicArn = System.getenv("SNS_TOPIC_ARN");
+                String dynamoTableName = System.getenv("DDB_TABLE_NAME");
 
-                // Get email from Secrets Manager (if you plan to use it)
-                GetSecretValueResponse secretResponse = secretsClient
-                                .getSecretValue(GetSecretValueRequest.builder().secretId(snsSecretName).build());
-                String emailEndpoint = secretResponse.secretString(); // currently unused
-                context.getLogger().log("Email :" + emailEndpoint);
+                try {
+                        GetSecretValueResponse secretResponse = secretsClient.getSecretValue(
+                                        GetSecretValueRequest.builder().secretId(snsSecretName).build());
+                        String emailEndpoint = secretResponse.secretString();
+                        context.getLogger().log("Email: " + emailEndpoint);
 
-                // Get S3 event details (Updated to handle S3Event)
-                for (S3Event.S3EventNotificationRecord record : event.getRecords()) {
-                        String bucket = record.getS3().getBucket().getName();
-                        String key = record.getS3().getObject().getKey();
-                        context.getLogger().log("Bucket :" + bucket);
+                        for (S3Event.S3EventNotificationRecord record : event.getRecords()) {
+                                String bucket = record.getS3().getBucket().getName();
+                                String key = record.getS3().getObject().getKey();
+                                context.getLogger().log("Bucket: " + bucket);
 
-                        // Fetch CSV file from S3
-                        InputStream s3ObjectInputStream = null; // Assume this is initialized with the S3 object content
-                        // Fetch the S3 file content
-                        // s3ObjectInputStream = s3Client.getObject(new GetObjectRequest(bucket, key));
+                                try (S3ObjectInputStream s3ObjectInputStream = s3Client
+                                                .getObject(GetObjectRequest.builder().bucket(bucket).key(key).build())
+                                                .stream()) {
 
-                        // Parse CSV file
-                        try (CSVReader reader = new CSVReaderBuilder(new InputStreamReader(s3ObjectInputStream))
-                                        .withSkipLines(1) // Skip header row
-                                        .build()) {
-                                String[] nextLine;
-                                while ((nextLine = reader.readNext()) != null) {
-                                        // Assuming the CSV is in this format: employeeid, firstname, middlename,
-                                        // lastname, email, document name, external storage
-                                        String employeeId = nextLine[0];
-                                        String firstName = nextLine[1];
-                                        String middleName = nextLine[2];
-                                        String lastName = nextLine[3];
-                                        String email = nextLine[4];
-                                        String documentName = nextLine[5];
-                                        String externalStorage = nextLine[6];
+                                        // Read CSV data
+                                        try (CSVReader reader = new CSVReaderBuilder(
+                                                        new InputStreamReader(s3ObjectInputStream)).build()) {
 
-                                        // Write data to DynamoDB
-                                        Map<String, AttributeValue> item = new HashMap<>();
-                                        item.put("employeeId", AttributeValue.builder().s(employeeId).build());
-                                        item.put("firstName", AttributeValue.builder().s(firstName).build());
-                                        item.put("middleName", AttributeValue.builder().s(middleName).build());
-                                        item.put("lastName", AttributeValue.builder().s(lastName).build());
-                                        item.put("email", AttributeValue.builder().s(email).build());
-                                        item.put("documentName", AttributeValue.builder().s(documentName).build());
-                                        item.put("externalStorage",
-                                                        AttributeValue.builder().s(externalStorage).build());
-                                        item.put("processedAt", AttributeValue.builder()
-                                                        .s(String.valueOf(System.currentTimeMillis())).build());
+                                                String[] header = reader.readNext(); // Read and process the header
+                                                context.getLogger().log("CSV Header: " + String.join(", ", header));
 
-                                        context.getLogger().log("Calling DynamoDB:");
-                                        dynamoClient.putItem(PutItemRequest.builder().tableName(dynamoTableName)
-                                                        .item(item).build());
+                                                String[] nextLine;
+                                                while ((nextLine = reader.readNext()) != null) {
+                                                        // Process each CSV row here
+                                                        Map<String, AttributeValue> item = new HashMap<>();
+                                                        item.put("employeeId", AttributeValue.builder().s(nextLine[0])
+                                                                        .build()); // Assuming first column is
+                                                                                   // employeeId
+                                                        item.put("firstName", AttributeValue.builder().s(nextLine[1])
+                                                                        .build()); // Assuming second column is
+                                                                                   // firstName
+                                                        item.put("middleName", AttributeValue.builder().s(nextLine[2])
+                                                                        .build()); // Assuming third column is
+                                                                                   // middleName
+                                                        item.put("lastName", AttributeValue.builder().s(nextLine[3])
+                                                                        .build()); // Assuming fourth column is lastName
+                                                        item.put("email", AttributeValue.builder().s(nextLine[4])
+                                                                        .build()); // Assuming fifth column is email
+                                                        item.put("documentName", AttributeValue.builder().s(nextLine[5])
+                                                                        .build()); // Assuming sixth column is
+                                                                                   // documentName
+                                                        item.put("externalStorage", AttributeValue.builder()
+                                                                        .s(nextLine[6]).build()); // Assuming seventh
+                                                                                                  // column is
+                                                                                                  // externalStorage
+
+                                                        // Put item to DynamoDB
+                                                        dynamoClient.putItem(PutItemRequest.builder()
+                                                                        .tableName(dynamoTableName).item(item).build());
+                                                }
+                                        }
+
+                                } catch (Exception e) {
+                                        context.getLogger()
+                                                        .log("Error reading or processing CSV file: " + e.getMessage());
+                                        e.printStackTrace();
                                 }
-                        } catch (Exception e) {
-                                context.getLogger().log("Error processing CSV file: " + e.getMessage());
-                        }
 
-                        // Publish to SNS
-                        snsClient.publish(PublishRequest.builder().topicArn(snsTopicArn)
-                                        .message("CSV uploaded: s3://" + bucket + "/" + key).subject("CSV Upload")
-                                        .build());
-                        context.getLogger().log("Sent to SNS:");
+                                // Send an SNS notification
+                                snsClient.publish(PublishRequest.builder().topicArn(snsTopicArn)
+                                                .message("CSV uploaded: s3://" + bucket + "/" + key)
+                                                .subject("CSV Upload").build());
+                                context.getLogger().log("Sent to SNS:");
+                        }
+                } catch (Exception e) {
+                        context.getLogger().log("Error processing CSV file: " + e.getMessage());
+                        e.printStackTrace();
                 }
         }
+
 }
