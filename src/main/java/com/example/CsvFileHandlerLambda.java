@@ -27,12 +27,10 @@ public class CsvFileHandlerLambda {
         private final DynamoDbClient dynamoClient;
         private final S3Client s3Client;
 
-        // Default constructor for AWS Lambda runtime
         public CsvFileHandlerLambda() {
                 this(SecretsManagerClient.create(), SnsClient.create(), DynamoDbClient.create(), S3Client.create());
         }
 
-        // Constructor for testing
         public CsvFileHandlerLambda(SecretsManagerClient secretsClient, SnsClient snsClient,
                         DynamoDbClient dynamoClient, S3Client s3Client) {
                 this.secretsClient = secretsClient;
@@ -42,25 +40,32 @@ public class CsvFileHandlerLambda {
         }
 
         public void handleRequest(S3Event event, Context context) {
-                context.getLogger().log("Lambda triggered");
-                context.getLogger().log("Received event " + event.toString());
+                context.getLogger().log("INFO [" + java.time.Instant.now() + "] - Lambda triggered");
+                context.getLogger().log("INFO [" + java.time.Instant.now() + "] - Received event " + event.toString());
 
                 String snsSecretName = System.getenv("SNS_SECRET_NAME");
                 String snsTopicArn = System.getenv("SNS_TOPIC_ARN");
                 String dynamoTableName = System.getenv("DDB_TABLE_NAME");
 
+                if (snsSecretName == null || snsTopicArn == null || dynamoTableName == null) {
+                        context.getLogger().log("ERROR [" + java.time.Instant.now()
+                                        + "] - Missing required environment variables.");
+                        return;
+                }
+
                 try {
                         GetSecretValueResponse secretResponse = secretsClient.getSecretValue(
                                         GetSecretValueRequest.builder().secretId(snsSecretName).build());
-                        String emailEndpoint = secretResponse.secretString(); // You can use this in SNS if needed
-                        context.getLogger().log("Retrieved secret email: " + emailEndpoint);
+                        String emailEndpoint = secretResponse.secretString();
+                        context.getLogger().log("INFO [" + java.time.Instant.now() + "] - Retrieved secret email: "
+                                        + emailEndpoint);
 
                         for (S3Event.S3EventNotificationRecord record : event.getRecords()) {
                                 String bucket = record.getS3().getBucket().getName();
                                 String key = record.getS3().getObject().getKey();
-                                context.getLogger().log("Processing S3 object: " + key + " from bucket: " + bucket);
+                                context.getLogger().log("INFO [" + java.time.Instant.now()
+                                                + "] - Processing S3 object: " + key + " from bucket: " + bucket);
 
-                                // Download object from S3
                                 GetObjectRequest getObjectRequest = GetObjectRequest.builder().bucket(bucket).key(key)
                                                 .build();
 
@@ -68,11 +73,20 @@ public class CsvFileHandlerLambda {
                                                 CSVReader reader = new CSVReaderBuilder(
                                                                 new InputStreamReader(inputStream)).build()) {
 
-                                        String[] headers = reader.readNext(); // Read header row
-                                        context.getLogger().log("CSV Headers: " + String.join(", ", headers));
+                                        String[] headers = reader.readNext();
+                                        context.getLogger().log("INFO [" + java.time.Instant.now() + "] - CSV Headers: "
+                                                        + String.join(", ", headers));
 
                                         String[] nextLine;
                                         while ((nextLine = reader.readNext()) != null) {
+                                                if (nextLine.length < 7) {
+                                                        context.getLogger()
+                                                                        .log("WARN [" + java.time.Instant.now()
+                                                                                        + "] - Skipping malformed row: "
+                                                                                        + String.join(", ", nextLine));
+                                                        continue;
+                                                }
+
                                                 Map<String, AttributeValue> item = new HashMap<>();
                                                 item.put("employeeId", AttributeValue.builder().s(nextLine[0]).build());
                                                 item.put("firstName", AttributeValue.builder().s(nextLine[1]).build());
@@ -87,19 +101,20 @@ public class CsvFileHandlerLambda {
                                                 dynamoClient.putItem(PutItemRequest.builder().tableName(dynamoTableName)
                                                                 .item(item).build());
 
-                                                context.getLogger()
-                                                                .log("Inserted record into DynamoDB: " + nextLine[0]);
+                                                context.getLogger().log("INFO [" + java.time.Instant.now()
+                                                                + "] - Inserted record into DynamoDB: " + nextLine[0]);
                                         }
                                 }
 
-                                // Send SNS notification
                                 snsClient.publish(PublishRequest.builder().topicArn(snsTopicArn).subject("CSV Upload")
                                                 .message("CSV uploaded: s3://" + bucket + "/" + key).build());
-                                context.getLogger().log("Published SNS notification");
+                                context.getLogger().log(
+                                                "INFO [" + java.time.Instant.now() + "] - Published SNS notification");
                         }
 
                 } catch (Exception e) {
-                        context.getLogger().log("Error processing file: " + e.getMessage());
+                        context.getLogger().log("ERROR [" + java.time.Instant.now() + "] - Error processing file: "
+                                        + e.getMessage());
                         e.printStackTrace();
                 }
         }
