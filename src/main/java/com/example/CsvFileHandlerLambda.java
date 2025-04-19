@@ -33,14 +33,17 @@ public class CsvFileHandlerLambda {
         }
 
         public void handleRequest(S3Event event, Context context) {
+
+                context.getLogger().log("Processing CSV file:");
+
                 // Environment variables injected by Terraform
                 String snsSecretName = System.getenv("SNS_SECRET_NAME"); // Secret in Secrets Manager (email address)
                 String snsTopicArn = System.getenv("SNS_TOPIC_ARN"); // SNS topic ARN
                 String dynamoTableName = System.getenv("DDB_TABLE_NAME"); // DynamoDB table name
 
                 // Get email from Secrets Manager (if you plan to use it)
-                GetSecretValueResponse secretResponse = secretsClient.getSecretValue(
-                                GetSecretValueRequest.builder().secretId(snsSecretName).build());
+                GetSecretValueResponse secretResponse = secretsClient
+                                .getSecretValue(GetSecretValueRequest.builder().secretId(snsSecretName).build());
                 String emailEndpoint = secretResponse.secretString(); // currently unused
 
                 // Get S3 event details
@@ -53,16 +56,10 @@ public class CsvFileHandlerLambda {
                 item.put("bucket", AttributeValue.builder().s(bucket).build());
                 item.put("processedAt", AttributeValue.builder().s(String.valueOf(System.currentTimeMillis())).build());
 
-                dynamoClient.putItem(PutItemRequest.builder()
-                                .tableName(dynamoTableName)
-                                .item(item)
-                                .build());
+                dynamoClient.putItem(PutItemRequest.builder().tableName(dynamoTableName).item(item).build());
 
                 // Send SNS notification
-                snsClient.publish(PublishRequest.builder()
-                                .topicArn(snsTopicArn)
-                                .message("CSV uploaded: s3://" + bucket + "/" + key)
-                                .subject("CSV Upload")
-                                .build());
+                snsClient.publish(PublishRequest.builder().topicArn(snsTopicArn)
+                                .message("CSV uploaded: s3://" + bucket + "/" + key).subject("CSV Upload").build());
         }
 }
