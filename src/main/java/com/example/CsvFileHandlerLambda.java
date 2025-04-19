@@ -46,6 +46,7 @@ public class CsvFileHandlerLambda {
                 GetSecretValueResponse secretResponse = secretsClient
                                 .getSecretValue(GetSecretValueRequest.builder().secretId(snsSecretName).build());
                 String emailEndpoint = secretResponse.secretString(); // currently unused
+                context.getLogger().log("Email :" + emailEndpoint);
 
                 // Get S3 event details (Updated to handle S3Event)
                 for (S3Event.S3EventNotificationRecord record : event.getRecords()) { // Updated to use
