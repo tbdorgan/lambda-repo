@@ -42,6 +42,7 @@ public class CsvFileHandlerLambda {
         }
 
         public void handleRequest(S3Event event, Context context) {
+                context.getLogger().log("Lambda triggered");
                 context.getLogger().log("Received event " + event.toString());
 
                 String snsSecretName = System.getenv("SNS_SECRET_NAME");
