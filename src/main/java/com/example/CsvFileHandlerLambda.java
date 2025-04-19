@@ -52,7 +52,7 @@ public class CsvFileHandlerLambda {
                                                                                       // S3EventNotificationRecord
                         String bucket = record.getS3().getBucket().getName();
                         String key = record.getS3().getObject().getKey();
-
+                        context.getLogger().log("Bucket :" + bucket);
                         // Write metadata to DynamoDB
                         Map<String, AttributeValue> item = new HashMap<>();
                         item.put("filename", AttributeValue.builder().s(key).build());
