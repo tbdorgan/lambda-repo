@@ -48,7 +48,7 @@ jobs:
 
       - name: Upload JAR to S3
         run: |
-          aws s3 cp target/lambda-csv-processor-1.0-SNAPSHOT-shaded.jar s3://$S3_BUCKET_NAME/$S3_KEY
+          aws s3 cp target/lambda-csv-processor-shaded.jar s3://$S3_BUCKET_NAME/$S3_KEY
 
       - name: Deploy Lambda from S3
         run: |
