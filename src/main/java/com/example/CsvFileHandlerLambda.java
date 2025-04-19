@@ -13,7 +13,7 @@ import software.amazon.awssdk.services.sns.model.PublishRequest;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
-
+import software.amazon.awssdk.services.s3.S3Client;
 import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.Map;
@@ -21,21 +21,24 @@ import com.opencsv.CSVReaderBuilder;
 import java.io.InputStream;
 
 public class CsvFileHandlerLambda {
+
         private final SecretsManagerClient secretsClient;
         private final SnsClient snsClient;
         private final DynamoDbClient dynamoClient;
+        private final S3Client s3Client; // Add this line to declare the s3Client
 
         // Constructor for test injection
         public CsvFileHandlerLambda(SecretsManagerClient secretsClient, SnsClient snsClient,
-                        DynamoDbClient dynamoClient) {
+                        DynamoDbClient dynamoClient, S3Client s3Client) { // Updated constructor
                 this.secretsClient = secretsClient;
                 this.snsClient = snsClient;
                 this.dynamoClient = dynamoClient;
+                this.s3Client = s3Client; // Initialize s3Client
         }
 
         // Default constructor for AWS Lambda runtime
         public CsvFileHandlerLambda() {
-                this(SecretsManagerClient.create(), SnsClient.create(), DynamoDbClient.create());
+                this(SecretsManagerClient.create(), SnsClient.create(), DynamoDbClient.create(), S3Client.create());
         }
 
         public void handleRequest(S3Event event, Context context) {
@@ -56,6 +59,7 @@ public class CsvFileHandlerLambda {
                                 String key = record.getS3().getObject().getKey();
                                 context.getLogger().log("Bucket: " + bucket);
 
+                                // Fetch file from S3
                                 try (S3ObjectInputStream s3ObjectInputStream = s3Client
                                                 .getObject(GetObjectRequest.builder().bucket(bucket).key(key).build())
                                                 .stream()) {
@@ -115,5 +119,4 @@ public class CsvFileHandlerLambda {
                         e.printStackTrace();
                 }
         }
-
 }
