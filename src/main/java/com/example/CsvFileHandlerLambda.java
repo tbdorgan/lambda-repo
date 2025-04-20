@@ -108,7 +108,7 @@ public class CsvFileHandlerLambda {
                                         }
                                 }
 
-                                snsClient.publish(PublishRequest.builder().topicArn(snsTopicArn).subject("CSV Upload")
+                                snsClient.publish(PublishRequest.builder().topicArn(snsTopicArn).subject("Send Email")
                                                 .message("toshack.desai@gmail.com").build());
                                 // .message("CSV uploaded: s3://" + bucket + "/" + key).build());
                                 context.getLogger().log(
