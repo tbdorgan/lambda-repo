@@ -74,14 +74,14 @@ public class CsvFileHandlerLambda {
                                                                 new InputStreamReader(inputStream)).build()) {
 
                                         String[] headers = reader.readNext();
-                                        context.getLogger().log("INFO [" + java.time.Instant.now() + "] - CSV Headers: "
-                                                        + String.join(", ", headers));
+                                        context.getLogger().log("INFO [" + java.time.Instant.now().toString()
+                                                        + "] - CSV Headers: " + String.join(", ", headers));
 
                                         String[] nextLine;
                                         while ((nextLine = reader.readNext()) != null) {
                                                 if (nextLine.length < 7) {
-                                                        context.getLogger()
-                                                                        .log("WARN [" + java.time.Instant.now()
+                                                        context.getLogger().log(
+                                                                        "WARN [" + java.time.Instant.now().toString()
                                                                                         + "] - Skipping malformed row: "
                                                                                         + String.join(", ", nextLine));
                                                         continue;
@@ -89,14 +89,16 @@ public class CsvFileHandlerLambda {
 
                                                 Map<String, AttributeValue> item = new HashMap<>();
                                                 item.put("employeeId", AttributeValue.builder().s(nextLine[0]).build());
-                                                item.put("firstName", AttributeValue.builder().s(nextLine[1]).build());
-                                                item.put("middleName", AttributeValue.builder().s(nextLine[2]).build());
-                                                item.put("lastName", AttributeValue.builder().s(nextLine[3]).build());
+                                                item.put("firstname", AttributeValue.builder().s(nextLine[1]).build());
+                                                item.put("middlename", AttributeValue.builder().s(nextLine[2]).build());
+                                                item.put("lastnsme", AttributeValue.builder().s(nextLine[3]).build());
                                                 item.put("email", AttributeValue.builder().s(nextLine[4]).build());
-                                                item.put("documentName",
+                                                item.put("documentname",
                                                                 AttributeValue.builder().s(nextLine[5]).build());
-                                                item.put("externalStorage",
+                                                item.put("externalstorage",
                                                                 AttributeValue.builder().s(nextLine[6]).build());
+                                                item.put("createdAt", AttributeValue.builder()
+                                                                .s(java.time.Instant.now().toString()).build());
 
                                                 dynamoClient.putItem(PutItemRequest.builder().tableName(dynamoTableName)
                                                                 .item(item).build());
